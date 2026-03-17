@@ -64,8 +64,24 @@ echo "Running LangChain DDD Application"
 echo "======================================"
 echo ""
 
+# Guarantee docs folder exists and keep root clean
+mkdir -p docs
+for f in RUN_LOCAL.md DOCKER_SETUP.md PROJECT_MAP.md OPTIMIZATION_RESULTS.md ARCHITECTURE_DDD.md TESTING_SCENARIOS.md TESTING_STRUCTURE.md TESTING_SUMMARY.md SYSTEM_PROMPT_RESTORED.md README-new.md; do
+  if [ -f "$f" ]; then
+    mv -f "$f" docs/
+  fi
+done
+
 # Run the application
 python app.py
+
+# Move any generated docs to docs/ and clean root
+mkdir -p docs
+for f in RUN_LOCAL.md DOCKER_SETUP.md PROJECT_MAP.md OPTIMIZATION_RESULTS.md ARCHITECTURE_DDD.md TESTING_SCENARIOS.md TESTING_STRUCTURE.md TESTING_SUMMARY.md SYSTEM_PROMPT_RESTORED.md README-new.md; do
+  if [ -f "$f" ]; then
+    mv -f "$f" docs/
+  fi
+done
 
 # Deactivate virtual environment on exit
 deactivate

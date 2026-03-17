@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+.eggs/
+venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment files
+.env
+.env.*
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Project artifacts
+chat_history.db
+cache/
+.pytest_cache/
+
+# Docs generated moved to docs/
+ARCHITECTURE_DDD.md
+DOCKER_SETUP.md
+OPTIMIZATION_RESULTS.md
+PROJECT_MAP.md
+README-new.md
+RUN_LOCAL.md
+SYSTEM_PROMPT_RESTORED.md
+TESTING_SCENARIOS.md
+TESTING_STRUCTURE.md
+TESTING_SUMMARY.md
+run-local.bat
+run-local.sh
+run_tests.py

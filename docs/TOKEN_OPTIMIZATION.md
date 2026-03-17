@@ -105,7 +105,7 @@ SOLUÇÃO: Comprimir histórico após N mensagens
         def resumir(self):
             # Usar LLM para comprimir
             # Custo: 1000 tokens para poupar 5000+ futuros
-            prompt = f"Resuma estas conversas em 3 pontos:\\n{self.mensagens}"
+            prompt = f"Resuma estas conversas em 3 pontos:\n{self.mensagens}"
             resumo = llm.invoke(prompt)
             self.mensagens = resumo + últimas_5_mensagens
 
@@ -148,7 +148,7 @@ CUSTO: 1000 tokens × 100 mensagens = 100K tokens
 SOLUÇÃO: Batch de 5-10 mensagens por chamada
 
     def processar_batch(mensagens):
-        prompt = "Categorize estas 10 perguntas:\\n" + "\\n".join(mensagens)
+        prompt = "Categorize estas 10 perguntas:\n" + "\n".join(mensagens)
         resultados = llm.invoke(prompt)
         return resultados
 
@@ -197,91 +197,5 @@ GitHub Actions - Rodar testes com mínimo de custo:
 
     - name: Skip Slow Tests in PR
       if: github.event_name == 'pull_request'
-      run: pytest tests/ -m "not slow"
-
-    - name: Full Suite Only on Main
-      if: github.ref == 'refs/heads/main'
-      run: pytest tests/ --cov=app
-
-REDUZ TEMPO: 5s → 2s
-REDUZ TOKENS: 2150 → 300
+      run: pytest tests/test_security.py -q
 """
-
-# =========================================================
-# 📊 ESTIMATIVA DE IMPACTO
-# =========================================================
-
-IMPACTO = {
-    "Antes (Sem Otimização)": {
-        "Tokens por execução": 2150,
-        "Custo mensal (100x)": "$0.108",
-        "Tempo execução": "1.51s",
-    },
-    "Depois (Com Otimizações)": {
-        "Tokens por execução": 250,      # -88%
-        "Custo mensal (100x)": "$0.013", # -88%
-        "Tempo execução": "0.8s",        # -47%
-    },
-    "Economia Anual": {
-        "Tokens": "2.28M tokens",
-        "Custo": "$1.14 USD",
-        "Tempo": 70 horas/ano",
-    }
-}
-
-# =========================================================
-# 🎯 PRÓXIMOS PASSOS
-# =========================================================
-
-TODO = [
-    "[  ] 1. MockAR FAISS em test_knowledge_base_loading",
-    "[  ] 2. Usar fixture compartilhada para embeddings",
-    "[  ] 3. Remover leitura de app.py ou usar @pytest.mark.slow",
-    "[  ] 4. Implementar histórico resumido em app.py",
-    "[  ] 5. Adicionar cache para respostas comuns",
-    "[  ] 6. Usar batch processing para múltiplas mensagens",
-    "[  ] 7. Configurar GitHub Actions com skip para PRs",
-    "[  ] 8. Monitorar custo com OpenAI API dashboard",
-]
-
-# =========================================================
-# 💰 CUSTO AWS + OPENAI (Estimado/Ano)
-# =========================================================
-
-"""
-Cenário 1: SEM OTIMIZAÇÃO
-  - Compute EC2: $300/mês = $3,600/ano
-  - RDS (BD persistente): $50/mês = $600/ano
-  - OpenAI Tokens: $0.11/mês = $1.32/ano
-  - Total: ~$4,200/ano
-
-Cenário 2: COM OTIMIZAÇÕES
-  - Compute EC2: $300/mês = $3,600/ano  (mesmo)
-  - RDS (BD): $50/mês = $600/ano         (mesmo)
-  - OpenAI Tokens: $0.01/mês = $0.12/ano (-88%)
-  - Total: ~$4,200/ano                   (negligível melhoria)
-
-⚠️ INSIGHT: Custos de TOKENS são insignificantes!
-Focar em otimizar COMPUTE (EC2) é mais importante.
-"""
-
-# =========================================================
-# 🏆 CONCLUSÃO
-# =========================================================
-
-print("""
-✅ Testes ESTÃO bem otimizados para tokens:
-   - 2150 tokens/execução é ACEITÁVEL
-   - Custaria ~$1.30/ano (negligível)
-   - Tempo 1.5s é RÁPIDO
-
-⚠️ MAS podem melhorar:
-   1. Mock FAISS (-1000 tokens)
-   2. Cache embeddings (-600 tokens)
-   3. Skip teste leitura app.py (-100 tokens)
-
-🚀 Recomendação:
-   - Implementar mocks restantes
-   - Focar em performance (EC2) não em tokens
-   - Manter qualidade de testes >90%
-""")

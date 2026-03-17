@@ -53,11 +53,14 @@ OPENAI_API_KEY=sk-sua-chave-aqui
 
 ## 4. Execução (Local)
 
-1. Ative seu virtual environment e instale dependências, ou use `run-local.bat` / `run-local.sh`:
+> Nota: o projeto mantém toda documentação gerada em `docs/`.
+> Se aparecer `README-new.md`, `RUN_LOCAL.md`, etc. na raiz, o script `run-local` já move automaticamente para `docs/`.
+
+1. Ative seu virtual environment e instale dependências, ou use `scripts/run-local.bat` / `scripts/run-local.sh`:
 
 Windows:
 ```powershell
-.\run-local.bat
+scripts\run-local.bat
 ```
 
 Linux/macOS:
