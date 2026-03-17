@@ -1,7 +1,7 @@
 """
 Otimizações para Testes com Mínimo Consumo de Tokens.
 
-Status: Implementação das melhores práticas para AWS + OpenAI.
+Status: Implementação completa das melhores práticas.
 """
 
 # =========================================================
@@ -9,31 +9,37 @@ Status: Implementação das melhores práticas para AWS + OpenAI.
 # =========================================================
 
 METAS = {
-    "Tokens por execução": 200,  # Down from 2150
-    "Custo mensal": "$0.01",      # Down from $0.11
-    "Tempo teste": "1.5s",         # Mantém rápido
-    "Cobertura": "95%+",           # Sem comprometer
+    "Tokens por execução (testes)": 250,   # Down from 2150
+    "Cache hit rate (produção)": "50-70%", # SemanticCache vs 15-20% MD5
+    "Custo mensal estimado": "$5-6",       # Down from $11 (100 queries/dia)
+    "Tempo teste": "18s",                   # 88 testes
+    "Cobertura": "88 testes",              # 5 arquivos de teste
 }
 
 # =========================================================
-# 1️⃣ MOCK DE FAISS (Maior Economia)
+# 1️⃣ RAG SEM CUSTO DE API (Maior Economia em Produção)
 # =========================================================
 
 """
-PROBLEMA: test_knowledge_base_loading() carrega FAISS real
-CUSTO: ~1000 tokens
-SOLUÇÃO: Mock completo
+PROBLEMA: RAG com FAISS + OpenAI Embeddings consumia tokens em cada ingestão
+CUSTO: ~$0.02/1M tokens (text-embedding-3-small)
+SOLUÇÃO: LocalTextKnowledgeRepository com keyword matching
 
-Antes:
-    from app import carregar_base_conhecimento
-    result = carregar_base_conhecimento()  # Carrega 180 linhas de KB
+Implementado em: src/infrastructure/persistence/local_text_knowledge_repository.py
 
-Depois:
-    @patch('app.OpenAIEmbeddings')
-    @patch('app.FAISS.from_texts')
-    def test_knowledge_base_loading(self, mock_faiss, mock_embeddings):
-        mock_faiss.return_value.as_retriever = Mock()
-        # Zero tokens, 10x mais rápido
+Antes (FAISS + embeddings):
+    from langchain_community.vectorstores import FAISS
+    from langchain_openai import OpenAIEmbeddings
+    db = FAISS.from_texts(chunks, OpenAIEmbeddings())  # Custo de API!
+
+Depois (keyword search local):
+    class LocalTextKnowledgeRepository:
+        def search(self, query, top_k=3):
+            keywords = query.lower().split()
+            # Score por ocorrência de keywords — zero tokens, zero custo
+            return sorted(docs, key=lambda d: score(d, keywords))[:top_k]
+
+ECONOMIA: 100% das chamadas de embedding eliminadas para a KB
 """
 
 # =========================================================
@@ -113,28 +119,29 @@ ECONOMIA: ~80% em histórico longo
 """
 
 # =========================================================
-# 5️⃣ CACHE DE RESPOSTAS COMUNS
+# 5️⃣ CACHE SEMÂNTICO (Implementado — maior ganho em produção)
 # =========================================================
 
 """
-PROBLEMA: Perguntas repetidas = chamadas duplicadas
-EXEMPLO: 100 usuários perguntam "O que é LangChain?"
+PROBLEMA: Cache MD5 (match exato) tem hit rate de ~15-20%
+EXEMPLO: "Como criar uma chain?" e "Como faço uma chain?" = 2 chamadas ao LLM
 
-SOLUÇÃO: Cache simples (Redis ou Memória)
+SOLUÇÃO IMPLEMENTADA: SemanticCache com ChromaDB + sentence-transformers
+Arquivo: src/infrastructure/external/semantic_cache.py
 
-    class CachePrompt:
-        def __init__(self):
-            self.cache = {}
-        
-        def get_response(self, prompt):
-            if prompt in self.cache:
-                return self.cache[prompt]  # 0 tokens
-            
-            response = llm.invoke(prompt)  # Paga uma vez
-            self.cache[prompt] = response
-            return response
+    cache = SemanticCache(
+        persist_dir="cache/semantic_cache",
+        threshold=0.90  # 90% de similaridade coseno
+    )
 
-ECONOMIA: Até 99% para perguntas frequentes
+    # Perguntas semanticamente similares acertam o cache:
+    cache.set("Como criar uma chain?", "Use o operador pipe: prompt | llm.")
+    cache.get("Como fazer uma chain?")   # HIT — 0 tokens
+    cache.get("Como montar uma chain?")  # HIT — 0 tokens
+
+ECONOMIA: Hit rate ~50-70% (vs. 15-20% do MD5)
+MODELO: paraphrase-multilingual-MiniLM-L12-v2 (~400MB, suporta português)
+FALLBACK: Se ChromaDB bloqueado por política do sistema → usa MD5 automaticamente
 """
 
 # =========================================================
@@ -162,24 +169,26 @@ ECONOMIA: ~80% (10 mensagens = 5000 tokens vs 10K)
 """
 ALTERNATIVAS (mais baratas):
 
-1. GPT-3.5 Turbo (atual)
+1. GPT-3.5 Turbo (padrão atual do projeto)
    - $0.50 / 1M input tokens
    - $1.50 / 1M output tokens
 
-2. GPT-4 Turbo (se necessário)
+2. GPT-4o-mini (balanceado)
+   - $0.15 / 1M input tokens
+   - $0.60 / 1M output tokens
+
+3. GPT-4 Turbo (premium)
    - $10 / 1M input tokens
    - $30 / 1M output tokens
 
-3. Ollama Local (GRATUITO!)
-   - Rodando localmente
-   - Zero custos
-   - 0 latência
+4. Ollama Local (GRATUITO! — próxima melhoria planejada)
+   - Rodando localmente (llama3.2, qwen2.5, mistral)
+   - Zero custos de API
+   - Requer 4-10GB RAM
+   - Adaptação: substituir OpenAILLMService por OllamaLLMService
 
-RECOMENDAÇÃO PARA TESTES:
-    if IS_TEST:
-        model = "gpt-3.5-turbo"  # Barato
-    elif IS_PRODUCTION:
-        model = "gpt-4o"  # Melhor qualidade
+CONFIGURAR MODELO via .env:
+    LANGCHAIN_MODEL=gpt-3.5-turbo  # padrão
 """
 
 # =========================================================

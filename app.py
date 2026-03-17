@@ -22,7 +22,8 @@ import sys
 import asyncio
 import argparse
 
-from langchain_openai import ChatOpenAI
+# ChatOpenAI must remain importable from this module — tests patch 'app.ChatOpenAI'
+from langchain_openai import ChatOpenAI  # noqa: F401
 from src.infrastructure.config import Settings
 from src.infrastructure.persistence import SQLMessageRepository, LocalTextKnowledgeRepository
 from src.application.services import ChatService, KnowledgeService, SecurityService
@@ -50,25 +51,40 @@ def validar_codigo_python(code: str):
     return "Nenhum problema crítico ✅"
 
 
+def _build_chat_service() -> ChatService:
+    """Builds a ChatService with default settings. Used by helper functions below."""
+    return ChatService(
+        SQLMessageRepository(Settings.DB_PATH),
+        LocalTextKnowledgeRepository(Settings.KNOWLEDGE_BASE_FILE),
+        model=Settings.OPENAI_MODEL,
+        temperature=Settings.OPENAI_TEMPERATURE,
+        db_path=Settings.DB_PATH
+    )
+
+
 def criar_prompt(retriever=None):
-    repository = SQLMessageRepository(Settings.DB_PATH)
-    knowledge_repo = LocalTextKnowledgeRepository(Settings.KNOWLEDGE_BASE_FILE)
-    chat_service = ChatService(repository, knowledge_repo, model=Settings.OPENAI_MODEL, temperature=Settings.OPENAI_TEMPERATURE, db_path=Settings.DB_PATH)
+    chat_service = _build_chat_service()
     return chat_service._create_prompt(use_context=bool(retriever), context="")
 
 
 def criar_chain(retriever=None):
-    prompt = criar_prompt(retriever)
-    chat_service = ChatService(SQLMessageRepository(Settings.DB_PATH), LocalTextKnowledgeRepository(Settings.KNOWLEDGE_BASE_FILE), model=Settings.OPENAI_MODEL, temperature=Settings.OPENAI_TEMPERATURE, db_path=Settings.DB_PATH)
+    from langchain_core.runnables.history import RunnableWithMessageHistory
+    chat_service = _build_chat_service()
+    prompt = chat_service._create_prompt(use_context=bool(retriever), context="")
     return prompt | chat_service._llm
 
 
 def criar_chain_com_historico(retriever=None):
-    chain = criar_chain(retriever)
-    chat_service = ChatService(SQLMessageRepository(Settings.DB_PATH), LocalTextKnowledgeRepository(Settings.KNOWLEDGE_BASE_FILE), model=Settings.OPENAI_MODEL, temperature=Settings.OPENAI_TEMPERATURE, db_path=Settings.DB_PATH)
     from langchain_core.runnables.history import RunnableWithMessageHistory
-    chain_with_history = RunnableWithMessageHistory(chain, chat_service._get_session_history, input_messages_key="input", history_messages_key="history")
-    return chain_with_history
+    chat_service = _build_chat_service()
+    prompt = chat_service._create_prompt(use_context=bool(retriever), context="")
+    chain = prompt | chat_service._llm
+    return RunnableWithMessageHistory(
+        chain,
+        chat_service._get_session_history,
+        input_messages_key="input",
+        history_messages_key="history"
+    )
 
 
 if __name__ == "__main__":

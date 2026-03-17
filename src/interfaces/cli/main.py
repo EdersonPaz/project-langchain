@@ -8,7 +8,7 @@ from openai import RateLimitError
 # Imports from DDD layers
 from ...infrastructure.config import Settings
 from ...infrastructure.persistence import SQLMessageRepository, LocalTextKnowledgeRepository
-from ...infrastructure.external import OpenAILLMService, ResponseCache
+from ...infrastructure.external import OpenAILLMService, ResponseCache, SemanticCache
 from ...application.services import ChatService, KnowledgeService, SecurityService
 from ...domain.value_objects import SessionId
 from ...domain.entities import Message
@@ -30,7 +30,19 @@ class ChatCLI:
         # Initialize infrastructure layer
         self.message_repo = SQLMessageRepository(Settings.DB_PATH)
         self.knowledge_repo = LocalTextKnowledgeRepository(Settings.KNOWLEDGE_BASE_FILE)
-        self.cache = ResponseCache(Settings.CACHE_FILE)
+
+        # Use semantic cache when enabled, fall back to MD5 cache otherwise
+        if Settings.USE_SEMANTIC_CACHE:
+            self.cache = SemanticCache(
+                persist_dir=Settings.SEMANTIC_CACHE_DIR,
+                threshold=Settings.SEMANTIC_CACHE_THRESHOLD
+            )
+            if not self.cache.is_ready():
+                print("[WARNING] Falling back to MD5 cache (install chromadb + sentence-transformers)")
+                self.cache = ResponseCache(Settings.CACHE_FILE)
+        else:
+            self.cache = ResponseCache(Settings.CACHE_FILE)
+
         self.llm_service = OpenAILLMService(
             model=Settings.OPENAI_MODEL,
             temperature=Settings.OPENAI_TEMPERATURE
@@ -58,8 +70,9 @@ class ChatCLI:
         print("=" * 70)
         print(f"✅ Model: {Settings.OPENAI_MODEL}")
         print(f"✅ RAG: {'Enabled' if Settings.USE_RAG else 'Disabled'}")
+        cache_type = "Semantic (ChromaDB)" if isinstance(self.cache, SemanticCache) and self.cache.is_ready() else "MD5 (JSON)"
+        print(f"✅ Cache: {cache_type} — {self.cache.size()} responses cached")
         print(f"💾 Database: {Settings.DB_PATH}")
-        print(f"💾 Cache: {self.cache.size()} responses cached")
         print("=" * 70)
         print("\\nCommands:")
         print("  'help'      - Show available commands")

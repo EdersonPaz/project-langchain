@@ -31,6 +31,11 @@ class Settings:
     CACHE_DIR: str = os.getenv("CACHE_DIR", "cache")
     CACHE_FILE: str = os.getenv("CACHE_FILE", f"{CACHE_DIR}/response_cache.json")
     ENABLE_RESPONSE_CACHE: bool = os.getenv("ENABLE_RESPONSE_CACHE", "true").lower() == "true"
+
+    # Semantic Cache Configuration (ChromaDB + local embeddings)
+    USE_SEMANTIC_CACHE: bool = os.getenv("USE_SEMANTIC_CACHE", "true").lower() == "true"
+    SEMANTIC_CACHE_DIR: str = os.getenv("SEMANTIC_CACHE_DIR", f"{CACHE_DIR}/semantic_cache")
+    SEMANTIC_CACHE_THRESHOLD: float = float(os.getenv("SEMANTIC_CACHE_THRESHOLD", "0.90"))
     
     # History Configuration
     MAX_HISTORY_MESSAGES: int = int(os.getenv("MAX_HISTORY_MESSAGES", "20"))

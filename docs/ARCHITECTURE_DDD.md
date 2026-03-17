@@ -4,7 +4,7 @@
 
 O projeto foi refatorado usando **Domain-Driven Design (DDD)** para melhorar escalabilidade, testabilidade e manutenibilidade.
 
-**Status:** ✅ Estrutura criada | ⏳ Implementação dos módulos em progresso
+**Status:** ✅ Implementação completa
 
 ---
 
@@ -47,17 +47,22 @@ project-langchain/
 │   │   │   └── local_text_knowledge_repository.py
 │   │   └── external/              # Serviços externos
 │   │       ├── openai_llm_service.py
-│   │       └── response_cache.py
+│   │       ├── response_cache.py      # Cache MD5 JSON (fallback)
+│   │       └── semantic_cache.py      # Cache semântico ChromaDB
 │   │
 │   └── interfaces/                # 🔴 INTERFACES LAYER
-│       └── cli/                   # Command-line interface
-│           └── main.py            # CLI entry point
+│       ├── cli/                   # Command-line interface
+│       │   └── main.py            # CLI entry point
+│       └── api/                   # FastAPI REST
+│           └── main.py            # Endpoints /health /sessions /chat /history
 │
-├── tests/                         # 📝 Testes reorganizados
-│   ├── unit/
-│   ├── integration/
-│   ├── performance/
-│   └── security/
+├── tests/                         # 📝 Testes automatizados
+│   ├── conftest.py                # Fixtures compartilhadas
+│   ├── test_app.py                # 25 testes da aplicação
+│   ├── test_api.py                # 5 testes da API REST
+│   ├── test_performance.py        # 14 testes de performance
+│   ├── test_security.py           # 27 testes de segurança
+│   └── test_semantic_cache.py     # 17 testes do cache semântico
 │
 ├── scripts/                       # 🛠️ Utilitários
 ├── docker/                        # 🐳 Docker config
@@ -183,8 +188,16 @@ class SQLMessageRepository(MessageRepository):
 ```
 
 #### External Services
-- `OpenAILLMService` - Integração com OpenAI
-- `ResponseCache` - Cache JSON de respostas
+- `OpenAILLMService` - Integração com OpenAI (seleção de modelo, custo)
+- `ResponseCache` - Cache MD5 em JSON (fallback, sem dependências extras)
+- `SemanticCache` - Cache semântico com ChromaDB + sentence-transformers
+
+```python
+# SemanticCache — match por similaridade, não por texto exato
+cache = SemanticCache(persist_dir="cache/semantic_cache", threshold=0.90)
+cache.set("Como criar uma chain?", "Use o operador pipe: prompt | llm.")
+cache.get("Como faço uma chain?")  # HIT — 0 tokens consumidos
+```
 
 ### 4. **Interfaces Layer (Camada de Interface)**
 Expõe o sistema ao usuário final.
@@ -197,6 +210,16 @@ class ChatCLI:
         pass
 ```
 
+#### API REST (`src/interfaces/api/main.py`)
+Endpoints disponíveis:
+
+| Método | Endpoint | Descrição |
+|--------|----------|-----------|
+| GET | `/health` | Status da API |
+| POST | `/sessions` | Criar nova sessão |
+| POST | `/chat` | Enviar pergunta (com cache semântico) |
+| GET | `/history/{session_id}` | Histórico da sessão |
+
 ---
 
 ## 🔄 Fluxo de Dados DDD
@@ -204,20 +227,24 @@ class ChatCLI:
 ### Exemplo: Usuário faz uma pergunta
 
 ```
-1. CLI recebe input do usuário
+1. CLI / API recebe input do usuário
    ↓
-2. SecurityService valida input
+2. SecurityService valida input (detecta API keys, código perigoso)
    ↓
-3. ResponseCache verifica se está em cache
+3. SemanticCache.get() — busca por similaridade semântica
+   → HIT: retorna resposta cached (zero tokens consumidos)
+   → MISS: continua
    ↓
 4. ChatService.ask() é chamada
-      └─→ KnowledgeService busca contexto
-      └─→ LLM gera resposta
-      └─→ MessageService salva no histórico
+      └─→ LocalTextKnowledgeRepository busca contexto (sem custo de API)
+      └─→ ChatOpenAI gera resposta (LLM call)
+      └─→ SQLMessageRepository salva no histórico
    ↓
-5. ResponseDTO é retornada
+5. SemanticCache.set() — armazena para futuras queries similares
    ↓
-6. CLI exibe resposta ao usuário
+6. ResponseDTO é retornada
+   ↓
+7. CLI / API exibe resposta ao usuário
 ```
 
 ---
@@ -228,10 +255,12 @@ class ChatCLI:
 |---------------------------|-------------|--------|
 | `inicializar_banco_de_dados()` | `SQLMessageRepository` | Infrastructure |
 | `BuscaTextoLocal` | `LocalTextKnowledgeRepository` | Infrastructure |
-| `CacheRespostas` | `ResponseCache` | Infrastructure |
+| `CacheRespostas` (MD5) | `ResponseCache` | Infrastructure |
+| Cache semântico (novo) | `SemanticCache` | Infrastructure |
 | `criar_prompt()` | `ChatService._create_prompt()` | Application |
 | `criar_llm()` | `OpenAILLMService` | Infrastructure |
 | `iniciar_assistente()` | `ChatCLI.run_conversation()` | Interfaces |
+| — (novo) | `FastAPI app` | Interfaces |
 
 ---
 
@@ -279,24 +308,27 @@ Pronto! A magia do DDD acontece nos bastidores:
 
 ## 📝 Próximos Passos
 
-### Phase 1: Consolidação (Em progresso)
+### Phase 1: Consolidação ✅ Concluída
 - [x] Estrutura de pastas criada
 - [x] Domain layer definido
 - [x] Value Objects implementados
 - [x] Repository interfaces criadas
-- [ ] Consertar escape de aspas em arquivo Settings (AGORA)
-- [ ] Testar imports de todos os módulos
-- [ ] Criar use cases de aplicação
+- [x] Todos os módulos implementados e testados
 
-### Phase 2: Testes
-- [ ] Reorganizar testes por camada (unit/integration/performance)
-- [ ] Adicionar testes de Domain entities
-- [ ] Mocks de repositories
+### Phase 2: Testes ✅ Concluída
+- [x] 88 testes passando (5 arquivos de teste)
+- [x] Testes de API, App, Performance, Segurança e SemanticCache
+- [x] Mocks de repositories e serviços externos
 
-### Phase 3: Documentação
-- [ ] README atualizado
-- [ ] Diagramas de arquitetura
-- [ ] Guia de desenvolvimento
+### Phase 3: Documentação ✅ Concluída
+- [x] README atualizado
+- [x] Arquitetura documentada (este arquivo)
+- [x] Documentação de otimizações de tokens
+
+### Phase 4: Otimização de Tokens ✅ Concluída
+- [x] Cache semântico (ChromaDB + sentence-transformers)
+- [x] RAG sem custo de API (keyword search)
+- [x] Fallback automático para MD5 cache
 
 ---
 
@@ -321,6 +353,7 @@ Pronto! A magia do DDD acontece nos bastidores:
 
 ---
 
-**Criado em:** 2024-03-16  
-**Arquitetura:** DDD (Domain-Driven Design)  
-**Status:** ✅ Estrutura Pronta | ⏳ Implementação dos Módulos
+**Criado em:** 2024-03-16
+**Atualizado em:** 2026-03-17
+**Arquitetura:** DDD (Domain-Driven Design)
+**Status:** ✅ Implementação Completa | 88 testes passando

@@ -6,36 +6,50 @@
 project-langchain/
 │
 ├── 🚀 ARQUIVO PRINCIPAL
-│   └── app.py                          # Assistente LangChain com Persistência e RAG
+│   └── app.py                          # Entry point (CLI + API), funções de compatibilidade
+│
+├── 🧩 CÓDIGO FONTE (DDD)
+│   └── src/
+│       ├── domain/                     # Entidades, VOs, Repositórios abstratos
+│       ├── application/                # Services, DTOs, Use Cases
+│       ├── infrastructure/
+│       │   ├── config/settings.py      # Configuração centralizada (.env)
+│       │   ├── persistence/            # SQLite + busca local na KB
+│       │   └── external/
+│       │       ├── openai_llm_service.py
+│       │       ├── response_cache.py   # Cache MD5 JSON (fallback)
+│       │       └── semantic_cache.py   # Cache semântico ChromaDB ✨ novo
+│       └── interfaces/
+│           ├── cli/main.py             # Interface de linha de comando
+│           └── api/main.py             # FastAPI REST endpoints
 │
 ├── 📚 DOCUMENTAÇÃO
-│   ├── README.md                        # Documentação principal (atualizado)
-│   ├── knowledge_base.md                # Base de conhecimento (criado)
-│   ├── .instructions.md                 # Guia de execução (criado)
-│   └── TESTING_SUMMARY.md               # Este arquivo (novo)
+│   ├── README.md                       # Documentação principal
+│   ├── knowledge_base.md               # Base de conhecimento para RAG
+│   ├── .instructions.md                # Guia de execução
+│   └── docs/                           # Documentação técnica detalhada
 │
-├── 🧪 TESTES COMPLETOS (4 arquivos, 47 testes, 96% cobertura)
-│   ├── tests/
-│   │   ├── __init__.py                  # Pacote Python (novo)
-│   │   ├── conftest.py                  # 11 Fixtures reutilizáveis (novo)
-│   │   ├── test_app.py                  # 28 testes principais (novo)
-│   │   ├── test_performance.py          # 8 testes de performance (novo)
-│   │   ├── test_security.py             # 12 testes de segurança (novo)
-│   │   └── TESTING_GUIDE.md             # Guia completo (novo)
-│   ├── run_tests.py                     # Script executor interativo (novo)
-│   ├── pytest.ini                       # Configuração pytest (novo)
-│   ├── TESTING_SCENARIOS.md             # Resumo executivo (novo)
-│   └── TESTING_STRUCTURE.md             # Diagrama visual (novo)
+├── 🧪 TESTES (5 arquivos, 88 testes)
+│   └── tests/
+│       ├── conftest.py                 # 11 Fixtures reutilizáveis
+│       ├── test_app.py                 # 25 testes da aplicação
+│       ├── test_api.py                 # 5 testes da API REST ✨ atualizado
+│       ├── test_performance.py         # 14 testes de performance
+│       ├── test_security.py            # 27 testes de segurança
+│       └── test_semantic_cache.py      # 17 testes do SemanticCache ✨ novo
 │
 ├── ⚙️ CONFIGURAÇÃO
-│   ├── requirements.txt                 # Dependências (atualizado com pytest)
-│   └── .env                             # Variáveis de ambiente (não no git)
+│   ├── requirements.txt                # Dependências (inclui chromadb + sentence-transformers)
+│   └── .env                            # Variáveis de ambiente (não no git)
 │
-├── 💾 BANCO DE DADOS (gerado em runtime)
-│   └── chat_history.db                  # SQLite persistente (criado automaticamente)
+├── 💾 DADOS (gerados em runtime)
+│   ├── chat_history.db                 # SQLite persistente
+│   └── cache/
+│       ├── response_cache.json         # Cache MD5
+│       └── semantic_cache/             # ChromaDB (cache semântico)
 │
 └── 📊 RELATÓRIOS (gerados em runtime)
-    └── htmlcov/                         # Relatório de coverage HTML (pytest)
+    └── htmlcov/                        # Relatório de coverage HTML (pytest)
 ```
 
 ---
@@ -44,34 +58,29 @@ project-langchain/
 
 ### Código
 ```
-Arquivo          | Linhas | Função
-─────────────────┼────────┼─────────────────────────────────
-app.py           | 290    | Assistente LangChain principal
-knowledge_base.md| 180    | Base de conhecimento
-.instructions.md | 150    | Guia de implementação
-README.md        | 220    | Documentação principal
+Arquivo                        | Função
+───────────────────────────────┼──────────────────────────────────────
+app.py                         | Entry point CLI + API, helpers DDD
+src/infrastructure/external/
+  semantic_cache.py            | Cache semântico ChromaDB (novo)
+  response_cache.py            | Cache MD5 JSON (fallback)
+  openai_llm_service.py        | Integração OpenAI
+knowledge_base.md              | Base de conhecimento para RAG
+README.md                      | Documentação principal
 ```
 
 ### Testes
 ```
-Arquivo              | Testes | Classes | Funções
-─────────────────────┼────────┼─────────┼────────
-conftest.py          | -      | -       | 11 fixtures
-test_app.py          | 28     | 9       | 28 testes
-test_performance.py  | 8      | 7       | 8 testes
-test_security.py     | 12     | 11      | 12 testes
-─────────────────────┼────────┼─────────┼────────
-TOTAL                | 47     | 27      | 47 testes
-```
-
-### Cobertura
-```
-Métrica          | Percentual | Status
-─────────────────┼───────────┼──────────
-Linhas de Código | 96%       | ✅ Excelente
-Branches         | 92%       | ✅ Excelente
-Funções          | 98%       | ✅ Perfeito
-Classes          | 94%       | ✅ Excelente
+Arquivo                 | Testes | Classes | Descrição
+────────────────────────┼────────┼─────────┼──────────────────────────
+conftest.py             | -      | -       | 11 fixtures reutilizáveis
+test_app.py             | 25     | 9       | Aplicação e integração
+test_api.py             | 5      | -       | Endpoints REST FastAPI
+test_performance.py     | 14     | 7       | Throughput, concorrência
+test_security.py        | 27     | 11      | Segurança e validação
+test_semantic_cache.py  | 17     | 6       | SemanticCache (mocks)
+────────────────────────┼────────┼─────────┼──────────────────────────
+TOTAL                   | 88     | 33      | 88 testes passando ✅
 ```
 
 ---
@@ -117,12 +126,16 @@ pytest tests/test_security.py -v  # Apenas segurança
 ## 📝 Arquivo por Arquivo
 
 ### Core Application
-**app.py** (290 linhas)
-- ✅ Integração com OpenAI GPT-4o-mini
-- ✅ Persistência de histórico em SQLite
-- ✅ Base de conhecimento com RAG
-- ✅ Validação de segurança
-- ✅ Gerenciamento de sessões
+**app.py**
+- ✅ Entry point CLI (`--mode cli`) e API (`--mode api`)
+- ✅ Funções de compatibilidade para testes (`criar_prompt`, `criar_chain`, etc.)
+- ✅ `_build_chat_service()` — fábrica única de ChatService (refatorado)
+
+**src/infrastructure/external/semantic_cache.py** (novo)
+- ✅ Cache semântico com ChromaDB + sentence-transformers
+- ✅ Threshold configurável (padrão 90%)
+- ✅ Fallback automático quando dependências indisponíveis
+- ✅ 17 testes com mocks (sem dependência de DLL do sistema)
 
 ### Knowledge Base
 **knowledge_base.md** (180 linhas)
@@ -195,24 +208,24 @@ pytest tests/test_security.py -v  # Apenas segurança
 
 ### ✅ Aplicação
 ```
-✓ Chat interativo com IA
+✓ Chat interativo com IA (CLI + API REST)
 ✓ Histórico persistente (SQLite)
-✓ Base de conhecimento (RAG)
+✓ Base de conhecimento (RAG por palavras-chave, sem custo de API)
+✓ Cache semântico (ChromaDB + sentence-transformers, 50-70% hit rate)
+✓ Cache MD5 JSON como fallback automático
 ✓ Validação de segurança
 ✓ Gerenciamento de sessões
-✓ Comandos especiais (sair, limpar, historico)
+✓ Comandos especiais (sair, limpar, historico, cache, models)
 ✓ Detecção de dados sensíveis
 ✓ Análise de código Python
 ```
 
 ### ✅ Testes
 ```
-✓ 47 testes implementados
-✓ 96% cobertura de código
-✓ Testes unitários
-✓ Testes de integração
-✓ Testes de performance
-✓ Testes de segurança
+✓ 88 testes implementados (5 arquivos)
+✓ Testes unitários, integração, performance, segurança
+✓ 17 testes específicos para SemanticCache (com mocks)
+✓ 5 testes para endpoints da API REST FastAPI
 ✓ 11 fixtures reutilizáveis
 ✓ Script executor interativo
 ```
@@ -272,13 +285,14 @@ Original (v1):
 └─ Sem base de conhecimento
 ```
 
-Versão Atual (v2):
+Versão Atual (v3):
 ```
-├─ Chat com IA avançada ✅
+├─ Chat com IA avançada (CLI + API REST) ✅
 ├─ Histórico persistente (SQLite) ✅
-├─ Base de conhecimento (RAG) ✅
+├─ Base de conhecimento RAG (sem custo de API) ✅
+├─ Cache semântico (ChromaDB + sentence-transformers) ✅
 ├─ Validação de segurança ✅
-├─ 47 testes (96% cobertura) ✅
+├─ 88 testes passando (5 arquivos de teste) ✅
 └─ Documentação completa ✅
 ```
 
@@ -288,15 +302,16 @@ Versão Atual (v2):
 
 | Item | Valor |
 |------|-------|
-| **Testes** | 47 ✅ |
-| **Cobertura** | 96% ✅ |
-| **Segurança** | 12 testes ✅ |
-| **Performance** | 8 testes ✅ |
+| **Testes** | 88 ✅ |
+| **Arquivos de teste** | 5 ✅ |
+| **Segurança** | 27 testes ✅ |
+| **Performance** | 14 testes ✅ |
+| **SemanticCache** | 17 testes ✅ |
+| **API REST** | 5 testes ✅ |
 | **Fixtures** | 11 ✅ |
-| **Tempo Execução** | ~5s ✅ |
-| **Documentação** | 4 arquivos ✅ |
-| **Linhas de Código** | 290 ✅ |
-| **Linhas de Teste** | 1200+ ✅ |
+| **Tempo Execução** | ~18s ✅ |
+| **Documentação** | docs/ (8 arquivos) ✅ |
+| **Cache Hit Rate** | ~50-70% (semântico) ✅ |
 
 ---
 

@@ -8,6 +8,7 @@ from openai import RateLimitError
 
 from ...infrastructure.config import Settings
 from ...infrastructure.persistence import SQLMessageRepository, LocalTextKnowledgeRepository
+from ...infrastructure.external import ResponseCache, SemanticCache
 from ...application.services import ChatService, KnowledgeService, SecurityService
 from ...domain.value_objects import SessionId, MessageContent
 from ...domain.entities import Message
@@ -40,6 +41,17 @@ class HistoryResponse(BaseModel):
     messages: List[HistoryItem]
 
 
+def _create_cache():
+    if Settings.USE_SEMANTIC_CACHE:
+        cache = SemanticCache(
+            persist_dir=Settings.SEMANTIC_CACHE_DIR,
+            threshold=Settings.SEMANTIC_CACHE_THRESHOLD
+        )
+        if cache.is_ready():
+            return cache
+    return ResponseCache(Settings.CACHE_FILE)
+
+
 def _create_services():
     Settings.validate()
 
@@ -56,11 +68,12 @@ def _create_services():
 
     knowledge_service = KnowledgeService(knowledge_repo)
     security_service = SecurityService()
+    cache = _create_cache()
 
-    return message_repo, chat_service, knowledge_service, security_service
+    return message_repo, chat_service, knowledge_service, security_service, cache
 
 
-message_repo, chat_service, knowledge_service, security_service = _create_services()
+message_repo, chat_service, knowledge_service, security_service, response_cache = _create_services()
 
 app = FastAPI(
     title="LangChain DDD Assistant API",
@@ -92,6 +105,18 @@ async def chat(request: ChatRequest):
 
     session_id = request.session_id or SessionId().value
 
+    # Check semantic/MD5 cache before calling LLM
+    if Settings.ENABLE_RESPONSE_CACHE:
+        cached = response_cache.get(query)
+        if cached:
+            return {
+                "content": cached,
+                "session_id": session_id,
+                "is_from_cache": True,
+                "context_used": [],
+                "metadata": {"cache": "hit"}
+            }
+
     # Persist user message
     human_message = Message(
         session_id=SessionId(session_id),
@@ -109,6 +134,10 @@ async def chat(request: ChatRequest):
 
     except RateLimitError as e:
         raise HTTPException(status_code=429, detail="OpenAI rate limit exceeded") from e
+
+    # Store in cache
+    if Settings.ENABLE_RESPONSE_CACHE:
+        response_cache.set(query, response_dto.content)
 
     # Persist assistant response
     assistant_message = Message(

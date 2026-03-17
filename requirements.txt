@@ -4,18 +4,13 @@ langchain-community>=0.3,<0.4
 python-dotenv>=1.0,<2.0
 fastapi>=0.110,<1.0
 uvicorn>=0.24,<1.0
-
-# ✅ Otimizado para AWS - SEM embeddings caros!
-# Removido:
-#  - langchain-text-splitters (usado com FAISS)
-#  - langchain-community[vectorstores] (FAISS, Pinecone, etc)
-#
-# Porque:
-# - BuscaTextoLocal usa busca simples (sem custo)
-# - Cache em memória economiza chamadas ao LLM
-# - Histórico resumido = menos tokens
-faiss-cpu>=1.7,<2.0
 sqlalchemy>=2.0,<3.0
+
+# 🧠 Cache Semântico - embeddings locais (sem custo de API)
+# Modelo: paraphrase-multilingual-MiniLM-L12-v2 (~400MB, suporta português)
+# ChromaDB: banco vetorial persistido em disco
+chromadb>=0.5,<1.0
+sentence-transformers>=3.0,<4.0
 
 # 🧪 Testes e QA
 pytest>=7.0,<8.0

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python -m pytest tests/ -v --tb=short)",
+      "Bash(.venv/Scripts/python -m pytest tests/test_app.py::TestChainCreation tests/test_performance.py::TestResponseTime -v --tb=long)",
+      "Bash(curl -s http://localhost:8000/health)",
+      "Bash(start /B .venv/Scripts/python app.py --mode api --port 8000)",
+      "Bash(.venv/Scripts/python -c \":*)"
+    ]
+  }
+}
