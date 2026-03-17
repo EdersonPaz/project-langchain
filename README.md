@@ -77,7 +77,12 @@ venv\Scripts\activate
 source venv/bin/activate
 
 pip install -r requirements.txt
-python app.py
+# Executar em modo CLI
+python app.py --mode cli
+# Executar API FastAPI
+python app.py --mode api
+# Ou usar uvicorn diretamente:
+uvicorn src.interfaces.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Comandos disponíveis (CLI):

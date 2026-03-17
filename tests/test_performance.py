@@ -158,61 +158,71 @@ class TestConcurrency:
     def test_concurrent_database_writes(self, db_connection):
         """Testa escritas simultâneas no banco."""
         import threading
-        
+        import sqlite3
+
+        db_path = db_connection.execute("PRAGMA database_list").fetchone()[2]
+
         def write_messages(session_id, count):
-            cursor = db_connection.cursor()
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
             for i in range(count):
                 cursor.execute(
                     "INSERT INTO message_store (session_id, message_type, message_content) VALUES (?, ?, ?)",
                     (session_id, "human", f"Mensagem {i}")
                 )
-            db_connection.commit()
-        
+            conn.commit()
+            conn.close()
+
         # Criar threads
         threads = []
         for i in range(5):
             t = threading.Thread(target=write_messages, args=(f"session_{i}", 100))
             threads.append(t)
             t.start()
-        
+
         # Esperar conclusão
         for t in threads:
             t.join()
-        
+
         # Verificar dados
         cursor = db_connection.cursor()
         cursor.execute("SELECT COUNT(*) FROM message_store")
         count = cursor.fetchone()[0]
-        
+
         assert count == 500  # 5 threads * 100 messages
     
     def test_multiple_sessions_concurrent(self, db_connection):
         """Testa acesso simultâneo a múltiplas sessões."""
         import threading
-        
+        import sqlite3
+
+        db_path = db_connection.execute("PRAGMA database_list").fetchone()[2]
+
         def access_session(session_id):
-            cursor = db_connection.cursor()
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
             for i in range(50):
                 cursor.execute(
                     "INSERT INTO message_store (session_id, message_type, message_content) VALUES (?, ?, ?)",
                     (session_id, "human", f"Msg")
                 )
-            db_connection.commit()
-        
+            conn.commit()
+            conn.close()
+
         # 20 threads acessando sessões diferentes
         threads = []
         for i in range(20):
             t = threading.Thread(target=access_session, args=(f"concurrent_session_{i}",))
             threads.append(t)
             t.start()
-        
+
         for t in threads:
             t.join()
-        
+
         cursor = db_connection.cursor()
         cursor.execute("SELECT COUNT(DISTINCT session_id) FROM message_store")
         distinct_sessions = cursor.fetchone()[0]
-        
+
         assert distinct_sessions == 20
 
 

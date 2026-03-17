@@ -58,7 +58,14 @@ python -c "from src.domain.entities import Message; print('OK')"
 
 ### 5. Executar a Aplicação
 ```bash
-python app.py
+# CLI padrão
+python app.py --mode cli
+
+# API FastAPI (desenvolvimento)
+python app.py --mode api
+
+# Ou com uvicorn (recomendado para produção local):
+uvicorn src.interfaces.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ---

@@ -1,0 +1,39 @@
+﻿graph TD
+  A[Usuário] --> B[CLI / App]
+  B --> C[ChatService]
+  C --> D[SecurityService]
+  C --> E[KnowledgeService]
+  C --> F[OpenAI LLM Service]
+  E --> G[KnowledgeRepository]
+  G --> H[local_text_knowledge_repository]
+  C --> I[MessageRepository]
+  I --> J[sql_message_repository]
+  F --> K[OpenAI API]
+
+  subgraph src
+    C
+    D
+    E
+    F
+    G
+    I
+    J
+  end
+
+  subgraph application
+    C
+    D
+    E
+  end
+
+  subgraph domain
+    G
+    I
+  end
+
+  subgraph infrastructure
+    F
+    H
+    J
+  end
+
