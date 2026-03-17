@@ -1,39 +1,56 @@
 ﻿graph TD
-  A[Usuário] --> B[CLI / App]
+  A[Usuário] --> B[CLI / app.py]
   B --> C[ChatService]
   C --> D[SecurityService]
   C --> E[KnowledgeService]
-  C --> F[OpenAI LLM Service]
-  E --> G[KnowledgeRepository]
-  G --> H[local_text_knowledge_repository]
-  C --> I[MessageRepository]
-  I --> J[sql_message_repository]
-  F --> K[OpenAI API]
+  C --> F[MessageRepository]
+  C --> G[KnowledgeRepository]
+  C --> H[LangChain ChatOpenAI]
+  H --> I[OpenAI API]
 
-  subgraph src
+  E --> G
+  F --> J[sql_message_repository]
+  G --> K[local_text_knowledge_repository]
+
+  C --> L[SQLChatMessageHistory]
+  C --> M[ChatPromptTemplate]
+  C --> N[RunnableWithMessageHistory]
+
+  subgraph src/application/services
     C
     D
     E
+  end
+
+  subgraph src/domain/repositories
     F
     G
-    I
+  end
+
+  subgraph src/infrastructure/persistence
     J
+    K
   end
 
-  subgraph application
-    C
-    D
-    E
-  end
-
-  subgraph domain
-    G
-    I
-  end
-
-  subgraph infrastructure
-    F
+  subgraph src/infrastructure/external
     H
-    J
+    I
   end
+
+  subgraph src/domain/entities
+    O[Message]
+    P[Session]
+    Q[KnowledgeArticle]
+  end
+
+  subgraph src/domain/value_objects
+    R[SessionId]
+    S[MessageContent]
+  end
+
+  C --> O
+  C --> P
+  E --> Q
+  C --> R
+  C --> S
 
