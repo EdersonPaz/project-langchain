@@ -98,7 +98,7 @@ class SQLMessageRepository(MessageRepository):
             SELECT id FROM message_store
             WHERE session_id = ?
             ORDER BY created_at DESC
-            OFFSET ?
+            LIMIT -1 OFFSET ?
         """, (session_id.value, keep_count))
         
         ids_to_delete = [row[0] for row in cursor.fetchall()]

@@ -66,13 +66,13 @@ class ChatCLI:
     def print_welcome(self):
         """Print welcome message"""
         print("=" * 70)
-        print("🤖 LangChain Assistant - DDD Architecture Edition")
+        print("[AI] LangChain Assistant - DDD Architecture Edition")
         print("=" * 70)
-        print(f"✅ Model: {Settings.OPENAI_MODEL}")
-        print(f"✅ RAG: {'Enabled' if Settings.USE_RAG else 'Disabled'}")
+        print(f"[OK] Model: {Settings.OPENAI_MODEL}")
+        print(f"[OK] RAG: {'Enabled' if Settings.USE_RAG else 'Disabled'}")
         cache_type = "Semantic (ChromaDB)" if isinstance(self.cache, SemanticCache) and self.cache.is_ready() else "MD5 (JSON)"
-        print(f"✅ Cache: {cache_type} — {self.cache.size()} responses cached")
-        print(f"💾 Database: {Settings.DB_PATH}")
+        print(f"[OK] Cache: {cache_type} - {self.cache.size()} responses cached")
+        print(f"[DB] Database: {Settings.DB_PATH}")
         print("=" * 70)
         print("\\nCommands:")
         print("  'help'      - Show available commands")
@@ -86,7 +86,7 @@ class ChatCLI:
     def print_help(self):
         """Print help message"""
         help_text = """
-📚 Available Commands:
+Available Commands:
   
   help              Show this help message
   new               Start a new conversation session
@@ -98,7 +98,7 @@ class ChatCLI:
   models            Show available models
   exit / quit       Exit the application
 
-💡 Tips:
+Tips:
   - Type 'help' anytime for commands
   - Questions are automatically cached for performance
   - Your conversation is persistent in the database
@@ -111,14 +111,14 @@ class ChatCLI:
         messages = self.message_repo.get_by_session(SessionId(self.session_id.value), limit=count)
         
         if not messages:
-            print("\\n📭 No messages in this session yet.\\n")
+            print("\\nNo messages in this session yet.\\n")
             return
-        
-        print(f"\\n📋 Conversation History ({len(messages)} messages):")
+
+        print(f"\\nConversation History ({len(messages)} messages):")
         print("-" * 70)
         
         for msg in messages:
-            prefix = "👤" if msg.message_type == "human" else "🤖"
+            prefix = "[You]" if msg.message_type == "human" else "[AI]"
             preview = msg.content.value[:60] + "..." if msg.content.length > 60 else msg.content.value
             timestamp = msg.created_at.strftime("%H:%M:%S")
             print(f"{prefix} [{timestamp}] {preview}")
@@ -138,7 +138,7 @@ class ChatCLI:
         
         if cmd == "new":
             self.session_id = SessionId()
-            print(f"🔄 New session started: {self.session_id}\\n")
+            print(f"[NEW] Session started: {self.session_id}\\n")
             return True
         
         if cmd.startswith("history"):
@@ -153,21 +153,21 @@ class ChatCLI:
         
         if cmd == "cache":
             size = self.cache.size()
-            print(f"\\n💾 Cache Status: {size} responses cached\\n")
+            print(f"\\n[CACHE] Status: {size} responses cached\\n")
             return True
         
         if cmd == "cache clear":
             self.cache.clear()
-            print("\\n🗑️  Cache cleared!\\n")
+            print("\\n[CACHE] Cleared!\\n")
             return True
         
         if cmd == "clear":
             count = self.message_repo.clear_session(SessionId(self.session_id.value))
-            print(f"\\n🗑️  Cleared {count} messages from this session\\n")
+            print(f"\\n[CLEAR] Removed {count} messages from this session\\n")
             return True
         
         if cmd == "models":
-            print("\\n📋 Available Models (by cost):")
+            print("\\nAvailable Models (by cost):")
             for model, info in OpenAILLMService.MODELS.items():
                 tier = info["tier"].upper()
                 input_cost = info["cost_per_1m_input"]
@@ -187,7 +187,7 @@ class ChatCLI:
         
         while True:
             try:
-                user_input = input("\\n👤 You: ").strip()
+                user_input = input("\\nYou: ").strip()
                 
                 if not user_input:
                     continue
@@ -195,7 +195,7 @@ class ChatCLI:
                 # Check if it's a command
                 result = self.process_command(user_input)
                 if result is None:
-                    print("\\n👋 Goodbye!\\n")
+                    print("\\n[EXIT] Goodbye!\\n")
                     break
                 if result:  # Command was processed
                     continue
@@ -203,13 +203,13 @@ class ChatCLI:
                 # Validate input for security
                 is_valid, error_msg = self.security_service.validate_input(user_input)
                 if not is_valid:
-                    print(f"\\n⚠️  {error_msg}\\n")
+                    print(f"\\n[WARNING] {error_msg}\\n")
                     continue
                 
                 # Check cache
                 cached_response = self.cache.get(user_input)
                 if cached_response:
-                    print(f"\\n🤖 Assistant (from cache): {cached_response}\\n")
+                    print(f"\\n[AI] (from cache): {cached_response}\\n")
                     continue
                 
                 # Get response from chat service
@@ -220,7 +220,8 @@ class ChatCLI:
                         use_context=Settings.USE_RAG
                     )
                     
-                    print(f"\\n🤖 Assistant: {response_dto.content}\\n")
+                    source = response_dto.metadata.get("source", "openai")
+                    print(f"\\n[AI] ({source}): {response_dto.content}\\n")
                     
                     # Cache the response
                     if Settings.ENABLE_RESPONSE_CACHE:
@@ -233,15 +234,15 @@ class ChatCLI:
                     )
                 
                 except RateLimitError:
-                    print("\\n⚠️  OpenAI Rate Limit Reached")
+                    print("\\n[WARNING] OpenAI Rate Limit Reached")
                     print("Visit: https://platform.openai.com/account/billing\\n")
             
             except KeyboardInterrupt:
-                print("\\n\\n👋 Interrupted by user!\\n")
+                print("\\n\\n[EXIT] Interrupted by user!\\n")
                 break
             
             except Exception as e:
-                print(f"\\n❌ Error: {e}\\n")
+                print(f"\\n[ERROR] {e}\\n")
 
 
 def main():

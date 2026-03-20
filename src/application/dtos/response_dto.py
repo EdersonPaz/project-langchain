@@ -32,5 +32,6 @@ class ResponseDTO:
             "session_id": self.session_id,
             "is_from_cache": self.is_from_cache,
             "context_used": self.context_used,
-            "metadata": self.metadata
+            "metadata": self.metadata,
+            "source": self.metadata.get("source", "openai")
         }

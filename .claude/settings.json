@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".venv/Scripts/python.exe -c \"import sys,json,subprocess; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path',''); subprocess.run([sys.executable,'scripts/update_skill_index.py']) if (f.endswith('.py') or 'knowledge_base.md' in f) else None\" 2>/dev/null || true",
+            "timeout": 15,
+            "statusMessage": "Updating SKILL_INDEX..."
+          }
+        ]
+      }
+    ]
+  }
+}

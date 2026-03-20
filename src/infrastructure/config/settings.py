@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 class Settings:
     """Application configuration settings"""
     
-    # Load environment variables
-    load_dotenv()
+    # Load environment variables (.env overrides system env vars)
+    load_dotenv(override=True)
     
     # API Configuration
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")

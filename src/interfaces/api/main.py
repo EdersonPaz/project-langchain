@@ -2,7 +2,8 @@
 
 from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Query, status
+from fastapi.openapi.utils import get_openapi
 from pydantic import BaseModel, Field
 from openai import RateLimitError
 
@@ -14,31 +15,135 @@ from ...domain.value_objects import SessionId, MessageContent
 from ...domain.entities import Message
 
 
+# ---------------------------------------------------------------------------
+# Request / Response models
+# ---------------------------------------------------------------------------
+
 class ChatRequest(BaseModel):
-    query: str = Field(..., min_length=1, description="Pergunta do usuário")
-    session_id: Optional[str] = Field(None, description="ID de sessão (se não fornecido, um novo será criado)")
-    use_context: Optional[bool] = Field(True, description="Se deve usar contexto RAG")
+    query: str = Field(
+        ...,
+        min_length=1,
+        description="Pergunta ou mensagem do usuário",
+        examples=["O que é LangChain?"]
+    )
+    session_id: Optional[str] = Field(
+        None,
+        description="ID de sessão existente. Se omitido, uma nova sessão é criada automaticamente.",
+        examples=["user_20260319_120000_abc123"]
+    )
+    use_context: Optional[bool] = Field(
+        True,
+        description="Se verdadeiro, busca contexto relevante na base de conhecimento (RAG) antes de responder."
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "summary": "Pergunta simples",
+                    "value": {
+                        "query": "O que é LangChain?",
+                        "use_context": True
+                    }
+                },
+                {
+                    "summary": "Pergunta com sessão existente",
+                    "value": {
+                        "query": "Como uso LCEL?",
+                        "session_id": "user_20260319_120000_abc123",
+                        "use_context": True
+                    }
+                }
+            ]
+        }
+    }
 
 
 class ChatResponse(BaseModel):
-    content: str
-    session_id: str
-    is_from_cache: bool
-    context_used: List[str]
-    metadata: dict
+    content: str = Field(description="Resposta gerada pelo assistente")
+    session_id: str = Field(description="ID da sessão utilizada ou criada")
+    is_from_cache: bool = Field(description="Indica se a resposta foi retornada do cache (sem chamar o LLM)")
+    context_used: List[str] = Field(description="Títulos das seções da base de conhecimento utilizadas como contexto")
+    metadata: dict = Field(description="Metadados da resposta (modelo usado, cache hit, etc.)")
+    source: str = Field(default="openai", description="Origem da resposta: 'cache', 'knowledge_base' ou 'openai'")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "content": "LangChain é um framework para desenvolver aplicações com LLMs...",
+                    "session_id": "user_20260319_120000_abc123",
+                    "is_from_cache": False,
+                    "context_used": ["O que é LangChain", "Componentes principais"],
+                    "metadata": {"model": "gpt-3.5-turbo"}
+                }
+            ]
+        }
+    }
+
+
+class SessionResponse(BaseModel):
+    session_id: str = Field(description="ID único da sessão criada")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"session_id": "user_20260319_120000_abc123"}]
+        }
+    }
+
+
+class HealthResponse(BaseModel):
+    status: str = Field(description="Estado da API")
+    mode: str = Field(description="Modo de execução")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [{"status": "ok", "mode": "api"}]
+        }
+    }
 
 
 class HistoryItem(BaseModel):
-    id: Optional[int]
-    session_id: str
-    message_type: str
-    content: str
-    created_at: str
+    id: Optional[int] = Field(None, description="ID único da mensagem no banco")
+    session_id: str = Field(description="ID da sessão")
+    message_type: str = Field(description="Tipo da mensagem: 'human' ou 'assistant'")
+    content: str = Field(description="Conteúdo da mensagem")
+    created_at: str = Field(description="Timestamp de criação (ISO 8601)")
 
 
 class HistoryResponse(BaseModel):
-    session_id: str
-    messages: List[HistoryItem]
+    session_id: str = Field(description="ID da sessão")
+    messages: List[HistoryItem] = Field(description="Lista de mensagens em ordem cronológica")
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "session_id": "user_20260319_120000_abc123",
+                    "messages": [
+                        {
+                            "id": 1,
+                            "session_id": "user_20260319_120000_abc123",
+                            "message_type": "human",
+                            "content": "O que é LangChain?",
+                            "created_at": "2026-03-19T12:00:00"
+                        },
+                        {
+                            "id": 2,
+                            "session_id": "user_20260319_120000_abc123",
+                            "message_type": "assistant",
+                            "content": "LangChain é um framework...",
+                            "created_at": "2026-03-19T12:00:05"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+
+
+class ErrorResponse(BaseModel):
+    detail: str = Field(description="Descrição do erro")
 
 
 def _create_cache():
@@ -75,25 +180,113 @@ def _create_services():
 
 message_repo, chat_service, knowledge_service, security_service, response_cache = _create_services()
 
+# ---------------------------------------------------------------------------
+# FastAPI app
+# ---------------------------------------------------------------------------
+
+_DESCRIPTION = """
+## LangChain DDD Assistant API
+
+Assistente inteligente com **persistência de histórico**, **RAG local** e **cache semântico**.
+
+### Funcionalidades
+- **Chat com IA** — envia perguntas e recebe respostas do GPT via LangChain
+- **Sessões persistentes** — histórico salvo em SQLite, não apaga ao reiniciar
+- **RAG por palavras-chave** — contexto relevante da base de conhecimento injetado automaticamente (sem custo de embeddings)
+- **Cache semântico** — respostas similares retornadas do cache ChromaDB (~50-70% de hit rate)
+- **Validação de segurança** — detecta API keys expostas e código perigoso
+
+### Fluxo de uso
+1. `POST /sessions` — crie uma sessão (opcional, o chat cria automaticamente)
+2. `POST /chat` — envie perguntas usando o `session_id` retornado
+3. `GET /history/{session_id}` — consulte o histórico da conversa
+"""
+
 app = FastAPI(
     title="LangChain DDD Assistant API",
-    version="0.1.0",
-    description="API RESTful para o assistente com persistência SQLite + RAG"
+    version="1.0.0",
+    description=_DESCRIPTION,
+    contact={
+        "name": "LangChain DDD Project",
+        "url": "https://github.com/EdersonPaz/project-langchain",
+    },
+    license_info={"name": "MIT"},
+    openapi_tags=[
+        {
+            "name": "health",
+            "description": "Verificação de disponibilidade da API."
+        },
+        {
+            "name": "sessions",
+            "description": "Gerenciamento de sessões de conversa."
+        },
+        {
+            "name": "chat",
+            "description": "Envio de perguntas e recebimento de respostas do assistente."
+        },
+        {
+            "name": "history",
+            "description": "Consulta ao histórico de mensagens de uma sessão."
+        },
+    ]
 )
 
 
-@app.get("/health")
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
+@app.get(
+    "/health",
+    response_model=HealthResponse,
+    tags=["health"],
+    summary="Health check",
+    description="Verifica se a API está operacional.",
+)
 async def health_check():
     return {"status": "ok", "mode": "api"}
 
 
-@app.post("/sessions", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/sessions",
+    response_model=SessionResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["sessions"],
+    summary="Criar nova sessão",
+    description=(
+        "Cria um novo ID de sessão único. "
+        "Cada sessão mantém seu próprio histórico de conversa no SQLite. "
+        "O `session_id` também é criado automaticamente pelo endpoint `/chat` se não for fornecido."
+    ),
+    responses={201: {"description": "Sessão criada com sucesso"}},
+)
 async def create_session():
     session = SessionId()
     return {"session_id": session.value}
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    tags=["chat"],
+    summary="Enviar mensagem ao assistente",
+    description=(
+        "Envia uma pergunta ao assistente e retorna a resposta gerada pelo LLM.\n\n"
+        "**Fluxo interno:**\n"
+        "1. Valida a entrada (detecta API keys, código perigoso)\n"
+        "2. Verifica o cache semântico (ChromaDB) ou MD5 — se hit, retorna sem chamar o LLM\n"
+        "3. Busca contexto relevante na base de conhecimento (RAG por palavras-chave)\n"
+        "4. Chama o LLM com histórico + contexto\n"
+        "5. Armazena a resposta no cache e no SQLite\n\n"
+        "Se `session_id` não for fornecido, uma nova sessão é criada automaticamente."
+    ),
+    responses={
+        200: {"description": "Resposta gerada com sucesso"},
+        400: {"model": ErrorResponse, "description": "Query inválida ou vazia"},
+        429: {"model": ErrorResponse, "description": "Limite de requisições da OpenAI atingido"},
+        500: {"model": ErrorResponse, "description": "Erro interno do servidor"},
+    },
+)
 async def chat(request: ChatRequest):
     query = request.query.strip()
     if not query:
@@ -114,7 +307,8 @@ async def chat(request: ChatRequest):
                 "session_id": session_id,
                 "is_from_cache": True,
                 "context_used": [],
-                "metadata": {"cache": "hit"}
+                "metadata": {"cache": "hit"},
+                "source": "cache"
             }
 
     # Persist user message
@@ -153,8 +347,24 @@ async def chat(request: ChatRequest):
     return response_dto.to_dict()
 
 
-@app.get("/history/{session_id}", response_model=HistoryResponse)
-async def get_history(session_id: str, limit: int = 20):
+@app.get(
+    "/history/{session_id}",
+    response_model=HistoryResponse,
+    tags=["history"],
+    summary="Consultar histórico da sessão",
+    description=(
+        "Retorna as mensagens de uma sessão em ordem cronológica.\n\n"
+        "Use o parâmetro `limit` para controlar quantas mensagens retornar (padrão: 20)."
+    ),
+    responses={
+        200: {"description": "Histórico retornado com sucesso"},
+        400: {"model": ErrorResponse, "description": "session_id inválido"},
+    },
+)
+async def get_history(
+    session_id: str,
+    limit: int = Query(default=20, ge=1, le=200, description="Número máximo de mensagens a retornar")
+):
     try:
         sid = SessionId(session_id)
     except ValueError as err:

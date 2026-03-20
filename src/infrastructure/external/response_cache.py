@@ -26,7 +26,7 @@ class ResponseCache:
                 with open(self.cache_file, "r", encoding="utf-8") as f:
                     self._cache = json.load(f)
             except Exception as e:
-                print(f"⚠️  Could not load cache: {e}")
+                print(f"[WARNING] Could not load cache: {e}")
                 self._cache = {}
         else:
             self._cache = {}
@@ -38,7 +38,7 @@ class ResponseCache:
             with open(self.cache_file, "w", encoding="utf-8") as f:
                 json.dump(self._cache, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"⚠️  Could not save cache: {e}")
+            print(f"[WARNING] Could not save cache: {e}")
     
     @staticmethod
     def _make_key(text: str) -> str:

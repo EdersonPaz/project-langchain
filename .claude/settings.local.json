@@ -5,7 +5,24 @@
       "Bash(.venv/Scripts/python -m pytest tests/test_app.py::TestChainCreation tests/test_performance.py::TestResponseTime -v --tb=long)",
       "Bash(curl -s http://localhost:8000/health)",
       "Bash(start /B .venv/Scripts/python app.py --mode api --port 8000)",
-      "Bash(.venv/Scripts/python -c \":*)"
+      "Bash(.venv/Scripts/python -c \":*)",
+      "Bash(ls /c/Users/eders/OneDrive/Documentos/project-langchain/.venv/Scripts/python*)",
+      "Bash(python3 -c \"import sys,json,subprocess; d=json.load\\(sys.stdin\\); f=d.get\\(''''tool_input'''',{}\\).get\\(''''file_path'''',''''''''\\); subprocess.run\\([''''.venv/Scripts/python'''',''''scripts/update_skill_index.py'''']\\) if \\(f.endswith\\(''''.py''''\\) or ''''knowledge_base.md'''' in f\\) else None\")",
+      "Bash(.venv/Scripts/python -c \"import sys,json,subprocess; d=json.load\\(sys.stdin\\); f=d.get\\(''''tool_input'''',{}\\).get\\(''''file_path'''',''''''''\\); subprocess.run\\([''''.venv/Scripts/python'''',''''scripts/update_skill_index.py'''']\\) if \\(f.endswith\\(''''.py''''\\) or ''''knowledge_base.md'''' in f\\) else None\")",
+      "Bash(.venv/Scripts/python.exe -c \"import sys,json,subprocess; d=json.load\\(sys.stdin\\); f=d.get\\(''''tool_input'''',{}\\).get\\(''''file_path'''',''''''''\\); subprocess.run\\([''''.venv/Scripts/python.exe'''',''''scripts/update_skill_index.py'''']\\) if \\(f.endswith\\(''''.py''''\\) or ''''knowledge_base.md'''' in f\\) else None\")",
+      "Bash(.venv/Scripts/python.exe -c \"import sys,json,subprocess; d=json.load\\(sys.stdin\\); f=d.get\\(''''tool_input'''',{}\\).get\\(''''file_path'''',''''''''\\); subprocess.run\\([sys.executable,''''scripts/update_skill_index.py'''']\\) if \\(f.endswith\\(''''.py''''\\) or ''''knowledge_base.md'''' in f\\) else None\")",
+      "Bash(python3 -c \"import json; d=json.load\\(open\\(''/c/Users/eders/OneDrive/Documentos/project-langchain/.claude/settings.json''\\)\\); print\\(''hooks:'', list\\(d[''hooks''].keys\\(\\)\\)\\); print\\(''matcher:'', d[''hooks''][''PostToolUse''][0][''matcher'']\\); print\\(''JSON valid OK''\\)\")",
+      "Bash(.venv/Scripts/python.exe -c \"import json; d=json.load\\(open\\(''.claude/settings.json''\\)\\); print\\(''hooks:'', list\\(d[''hooks''].keys\\(\\)\\)\\); print\\(''matcher:'', d[''hooks''][''PostToolUse''][0][''matcher'']\\); print\\(''JSON valid OK''\\)\")",
+      "Bash(ls .env*)",
+      "Bash(ls /c/Users/eders/OneDrive/Documentos/project-langchain/.env*)",
+      "Bash(curl -s http://localhost:8001/health)",
+      "Bash(curl -s -X POST http://localhost:8001/sessions)",
+      "Bash(.venv/Scripts/python.exe -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(''''is_from_cache:'''', d[''''is_from_cache'''']\\); print\\(''''context_used:'''', d[''''context_used'''']\\); print\\(''''\\\\nResposta:'''', d[''''content''''][:300]\\)\")",
+      "Bash(curl -s -X POST http://localhost:8001/chat -H \"Content-Type: application/json\" -d '{\"\"query\"\": \"\"O que e LangChain?\"\", \"\"use_context\"\": true}')",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(curl -s -X POST http://localhost:8000/sessions)",
+      "Bash(.venv/Scripts/python.exe -c \":*)",
+      "Bash(grep -v \"^Loading\\\\|^INFO\\\\|^$\\\\|Warning\\\\|BertModel\\\\|LOAD REPORT\\\\|UNEXPECTED\\\\|Notes\\\\|embeddings\\\\|can be ignored\")"
     ]
   }
 }
